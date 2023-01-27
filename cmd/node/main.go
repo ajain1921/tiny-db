@@ -1,9 +1,9 @@
 package main
 
 import (
-	"pingack/mp0"
+	"fmt"
 )
 
 func main() {
-	mp0.Node()
+	fmt.Println("Hello from node!")
 }

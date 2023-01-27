@@ -1,7 +1,9 @@
 package main
 
-import "pingack/mp0"
+import (
+	"fmt"
+)
 
 func main() {
-	mp0.Log()
+	fmt.Println("Hello from logger!")
 }
