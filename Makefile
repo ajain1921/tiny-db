@@ -1,4 +1,8 @@
+all: node logger
 .PHONY: all
 
-all: **/*.go
-	go build
+node: node.go
+	go build node.go
+
+logger: logger.go
+	go build logger.go
