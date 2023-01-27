@@ -1,8 +1,8 @@
 all: node logger
 .PHONY: all
 
-node: node.go
-	go build node.go
+node: cmd/node/main.go node.go
+	go build -o node cmd/node/main.go
 
-logger: logger.go
-	go build logger.go
+logger: cmd/logger/main.go logger.go
+	go build -o logger cmd/logger/main.go
