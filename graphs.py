@@ -46,7 +46,7 @@ plt.show()
 
 # Get bandwidth frame by filtering for timestamp and bytes_received columns
 bandwidth_frame = df.filter(items=['timestamp', 'bytes_received'])
-avg_frame = delay_frame.groupby(['timestamp']).mean()
+avg_frame = bandwidth_frame.groupby(['timestamp']).mean()
 
 avg_frame.plot()
 
