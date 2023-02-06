@@ -35,6 +35,7 @@ func run() error {
 		return err
 	}
 	fmt.Fprintln(conn, name)
+	// time.Sleep(4 * time.Second)
 	// status, err := bufio.NewReader(conn).ReadString('\n')
 
 	// client, err := rpc.DialHTTP("tcp", ip+":"+port)
