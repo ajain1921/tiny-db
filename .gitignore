@@ -1,1 +1,4 @@
 bin
+data.csv
+data\ copy.csv
+*.png
