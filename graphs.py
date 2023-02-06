@@ -4,7 +4,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 
-DATA_FILE_NAME = 'data copy.csv'
+DATA_FILE_NAME = 'data.csv'
 
 df = pd.read_csv(DATA_FILE_NAME)
 
@@ -41,6 +41,7 @@ max_frame.plot(ax=ax)
 median_frame.plot(ax=ax)
 ninetieth_frame.plot(ax=ax)
 ax.set_ylim(ymin=0)
+ax.legend(['min', 'max', 'med', 'ninetieth'])
 
 plt.savefig('delay_graph.png', format='png')
 plt.show()
@@ -49,8 +50,9 @@ plt.show()
 bandwidth_frame = df.filter(items=['timestamp', 'bytes_received'])
 avg_frame = bandwidth_frame.groupby(['timestamp']).mean()
 
-avg_frame.plot()
+ax = avg_frame.plot()
 ax.set_ylim(ymin=0)
+ax.legend(['bandwidth'])
 
 plt.savefig('bandwidth_graph.png', format='png')
 plt.show()

@@ -26,8 +26,6 @@ func run() error {
 	ip := args[1]
 	port := args[2]
 
-	stdin := bufio.NewReader(os.Stdin)
-
 	var timestamp, hash string
 
 	conn, err := net.Dial("tcp", ip+":"+port)
@@ -45,7 +43,8 @@ func run() error {
 
 	// connectData := &logger.ConnectArgs{NodeName: name}
 	// client.Go("Logger.Connect", connectData, nil, nil)
-
+	stdin := bufio.NewReader(os.Stdin)
+	stdin.Reset(os.Stdin)
 	for {
 		_, err := fmt.Fscanf(stdin, "%s %s\n", &timestamp, &hash)
 		if err != nil {
