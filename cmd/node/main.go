@@ -32,17 +32,9 @@ func run() error {
 	if err != nil {
 		return err
 	}
+
 	fmt.Fprintln(conn, name)
-	// time.Sleep(4 * time.Second)
-	// status, err := bufio.NewReader(conn).ReadString('\n')
 
-	// client, err := rpc.DialHTTP("tcp", ip+":"+port)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// connectData := &logger.ConnectArgs{NodeName: name}
-	// client.Go("Logger.Connect", connectData, nil, nil)
 	stdin := bufio.NewReader(os.Stdin)
 	stdin.Reset(os.Stdin)
 	for {
@@ -51,11 +43,6 @@ func run() error {
 			fmt.Println("err: ", err)
 			break
 		}
-
-		// Event := timestamp + " " + hash
-		// logData := &logger.LogArgs{Event: Event, NodeName: name}
-
-		// client.Go("Logger.Log", logData, nil, nil)
 		fmt.Fprintln(conn, name+" "+timestamp+" "+hash)
 	}
 
