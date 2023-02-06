@@ -40,6 +40,7 @@ ax = min_frame.plot()
 max_frame.plot(ax=ax)
 median_frame.plot(ax=ax)
 ninetieth_frame.plot(ax=ax)
+ax.set_ylim(ymin=0)
 
 plt.savefig('delay_graph.png', format='png')
 plt.show()
@@ -49,6 +50,7 @@ bandwidth_frame = df.filter(items=['timestamp', 'bytes_received'])
 avg_frame = bandwidth_frame.groupby(['timestamp']).mean()
 
 avg_frame.plot()
+ax.set_ylim(ymin=0)
 
 plt.savefig('bandwidth_graph.png', format='png')
 plt.show()
