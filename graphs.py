@@ -41,6 +41,8 @@ max_frame.plot(ax=ax)
 median_frame.plot(ax=ax)
 ninetieth_frame.plot(ax=ax)
 ax.set_ylim(ymin=0)
+ax.set_ylabel('delay (seconds)')
+ax.set_xlabel('datetime')
 ax.legend(['min', 'max', 'med', 'ninetieth'])
 
 plt.savefig('delay_graph.png', format='png')
@@ -48,10 +50,14 @@ plt.show()
 
 # Get bandwidth frame by filtering for timestamp and bytes_received columns
 bandwidth_frame = df.filter(items=['timestamp', 'bytes_received'])
+bandwidth_frame['bytes_received'] = bandwidth_frame['bytes_received'].apply(
+    lambda bytes: (bytes * 8) / 1000)
 avg_frame = bandwidth_frame.groupby(['timestamp']).mean()
 
 ax = avg_frame.plot()
-ax.set_ylim(ymin=0, ymax=(10+max(avg_frame['bytes_received'])))
+ax.set_ylim(ymin=0, ymax=(0.2+max(bandwidth_frame['bytes_received'])))
+ax.set_ylabel('Bandwidth (Kbps)')
+ax.set_xlabel('datetime')
 ax.legend(['bandwidth'])
 
 plt.savefig('bandwidth_graph.png', format='png')
