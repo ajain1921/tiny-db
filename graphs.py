@@ -51,7 +51,7 @@ bandwidth_frame = df.filter(items=['timestamp', 'bytes_received'])
 avg_frame = bandwidth_frame.groupby(['timestamp']).mean()
 
 ax = avg_frame.plot()
-ax.set_ylim(ymin=0)
+ax.set_ylim(ymin=0, ymax=(10+max(avg_frame['bytes_received'])))
 ax.legend(['bandwidth'])
 
 plt.savefig('bandwidth_graph.png', format='png')
