@@ -4,7 +4,6 @@ from random import expovariate
 import time
 import sys
 
-
 if len(sys.argv) > 1:
     rate = float(sys.argv[1])
 else:
@@ -18,8 +17,5 @@ else:
 event_count = 0
 while max_events is None or event_count < max_events:
     event_count += 1
-    s = "%s %s" % (time.time(), sha256(urandom(20)).hexdigest())
-    print(s)
-    print(len(s.encode('utf-8')), file=sys.stderr)
-
+    print("%s %s" % (time.time(), sha256(urandom(20)).hexdigest()))
     time.sleep(expovariate(rate))
