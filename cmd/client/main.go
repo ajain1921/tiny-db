@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math/rand"
 	"net/rpc"
 	"os"
 	"pingack/mp3/internal/config"
 	"pingack/mp3/internal/server"
+	"strings"
 )
 
 func main() {
@@ -34,39 +34,48 @@ func run() error {
 		return err
 	}
 
-	coordinatingServer := servers[rand.Intn(len(servers))]
+	// coordinatingServer := servers[rand.Intn(len(servers))]
+	coordinatingServer := servers[0]
 
-	client, err := rpc.DialHTTP("tcp", coordinatingServer.Hostname+coordinatingServer.Port)
+	fmt.Println(coordinatingServer)
+
+	client, err := rpc.DialHTTP("tcp", coordinatingServer.Hostname+":"+coordinatingServer.Port)
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
 
 	// var server *config.Server
-	var command string
-	stdin := bufio.NewReader(os.Stdin)
-	stdin.Reset(os.Stdin)
+	var input string
+	reader := bufio.NewReader(os.Stdin)
+	reader.Reset(os.Stdin)
 	for {
-		_, err := fmt.Fscanf(stdin, "%s\n", &command)
+		input, err = reader.ReadString('\n')
+		input = input[:len(input)-1]
 		if err != nil {
 			return err
 		}
 
-		switch command {
+		switch command := strings.Split(input, " ")[0]; command {
 		case "BEGIN":
-			args := server.BeginArgs{}
+			args := server.BeginArgs{ClientId: id}
 			var reply server.Reply
 			err = client.Call("Server.Begin", &args, &reply)
 			if err != nil {
 				log.Fatal("begin error:", err)
 			}
+			fmt.Println(reply)
 
 		case "DEPOSIT":
-			var branch string
-			var account string
+			var any string
+			var branchAndAccount string
 			var amount int
 
-			fmt.Scanf("%s %s.%s %d", &branch, &account, &amount)
-			args := &server.DepositArgs{Branch: branch, Account: account, Amount: amount}
+			fmt.Sscanf(input, "%s %s %d", &any, &branchAndAccount, &amount)
+
+			branch := strings.Split(branchAndAccount, ".")[0]
+			account := strings.Split(branchAndAccount, ".")[1]
+
+			args := server.DepositArgs{Branch: branch, Account: account, Amount: amount}
 			var reply server.Reply
 			err = client.Call("Server.Deposit", &args, &reply)
 			if err != nil {
@@ -74,9 +83,9 @@ func run() error {
 			}
 
 		case "COMMIT":
-			if server == nil {
+			/* if server == nil {
 				continue
-			}
+			} */
 			return nil
 
 		case "":

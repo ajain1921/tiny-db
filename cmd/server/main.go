@@ -40,7 +40,7 @@ func run() error {
 		}
 	}
 
-	server := &Server{config: serverConfigEntry}
+	server := &Server{config: serverConfigEntry, bruh: make(map[string]int)}
 	rpc.Register(server)
 	rpc.HandleHTTP()
 	l, e := net.Listen("tcp", server.config.Hostname+":"+server.config.Port)
