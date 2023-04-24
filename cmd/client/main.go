@@ -10,6 +10,7 @@ import (
 	"pingack/mp3/internal/config"
 	"pingack/mp3/internal/server"
 	"strings"
+	"time"
 )
 
 func main() {
@@ -44,6 +45,8 @@ func run() error {
 		log.Fatal("dialing:", err)
 	}
 
+	timestamp := time.Now().UnixNano()
+
 	// var server *config.Server
 	var input string
 	reader := bufio.NewReader(os.Stdin)
@@ -57,13 +60,17 @@ func run() error {
 
 		switch command := strings.Split(input, " ")[0]; command {
 		case "BEGIN":
-			args := server.BeginArgs{ClientId: id}
+			args := server.BeginArgs{ClientId: id, Timestamp: timestamp}
 			var reply server.Reply
 			err = client.Call("Server.Begin", &args, &reply)
 			if err != nil {
 				log.Fatal("begin error:", err)
 			}
 			fmt.Println(reply)
+
+			if isAborted(reply) {
+				return nil
+			}
 
 		case "DEPOSIT":
 			var any string
@@ -75,11 +82,72 @@ func run() error {
 			branch := strings.Split(branchAndAccount, ".")[0]
 			account := strings.Split(branchAndAccount, ".")[1]
 
-			args := server.DepositArgs{Branch: branch, Account: account, Amount: amount}
+			args := server.UpdateArgs{Branch: branch, Account: account, Amount: amount, Timestamp: timestamp}
 			var reply server.Reply
 			err = client.Call("Server.Deposit", &args, &reply)
 			if err != nil {
 				log.Fatal("begin error:", err)
+			}
+			fmt.Println(reply)
+
+			if isAborted(reply) {
+				return nil
+			}
+
+		case "WITHDRAW":
+			var any string
+			var branchAndAccount string
+			var amount int
+
+			fmt.Sscanf(input, "%s %s %d", &any, &branchAndAccount, &amount)
+
+			branch := strings.Split(branchAndAccount, ".")[0]
+			account := strings.Split(branchAndAccount, ".")[1]
+
+			args := server.UpdateArgs{Branch: branch, Account: account, Amount: amount, Timestamp: timestamp}
+			var reply server.Reply
+			err = client.Call("Server.Withdraw", &args, &reply)
+			if err != nil {
+				log.Fatal("begin error:", err)
+			}
+			fmt.Println(reply)
+
+			if isAborted(reply) {
+				return nil
+			}
+
+		case "BALANCE":
+			var any string
+			var branchAndAccount string
+
+			fmt.Sscanf(input, "%s %s %d", &any, &branchAndAccount)
+
+			branch := strings.Split(branchAndAccount, ".")[0]
+			account := strings.Split(branchAndAccount, ".")[1]
+
+			args := server.BalanceArgs{Branch: branch, Account: account, Timestamp: timestamp}
+			var reply server.Reply
+			err = client.Call("Server.Balance", &args, &reply)
+			if err != nil {
+				log.Fatal("begin error:", err)
+			}
+			fmt.Println(reply)
+
+			if isAborted(reply) {
+				return nil
+			}
+
+		case "ABORT":
+			args := server.AbortArgs{Timestamp: timestamp}
+			var reply server.Reply
+			err = client.Call("Server.Abort", &args, &reply)
+			if err != nil {
+				log.Fatal("begin error:", err)
+			}
+			fmt.Println(reply)
+
+			if isAborted(reply) {
+				return nil
 			}
 
 		case "COMMIT":
@@ -94,4 +162,8 @@ func run() error {
 	}
 
 	return nil
+}
+
+func isAborted(reply server.Reply) bool {
+	return reply == "ABORTED" || reply == "NOT FOUND, ABORTED"
 }

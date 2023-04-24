@@ -9,6 +9,7 @@ import (
 	"net/rpc"
 	"os"
 	"pingack/mp3/internal/config"
+	"time"
 )
 
 func main() {
@@ -37,17 +38,34 @@ func run() error {
 	for _, potentialServer := range servers {
 		if potentialServer.Branch == branch {
 			serverConfigEntry = potentialServer
+			continue
 		}
 	}
 
-	server := &Server{config: serverConfigEntry, bruh: make(map[string]int)}
+	connections := make(map[string]*rpc.Client)
+	server := &Server{config: serverConfigEntry, servers: connections, transactions: make(map[int64](Set[string])), database: &Database{accounts: make(map[string]*Account)}}
+
 	rpc.Register(server)
 	rpc.HandleHTTP()
 	l, e := net.Listen("tcp", server.config.Hostname+":"+server.config.Port)
 	if e != nil {
 		log.Fatal("listen error:", e)
 	}
-	http.Serve(l, nil)
+	go http.Serve(l, nil)
 
-	return nil
+	time.Sleep(time.Duration(3) * time.Second)
+
+	for _, potentialServer := range servers {
+		client, err := rpc.DialHTTP("tcp", potentialServer.Hostname+":"+potentialServer.Port)
+		if err != nil {
+			log.Fatal("dialing:", err)
+		}
+		connections[potentialServer.Branch] = client
+	}
+
+	fmt.Println("Ready")
+	for {
+
+	}
+
 }
