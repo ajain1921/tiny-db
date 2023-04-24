@@ -11,8 +11,8 @@ type Database struct {
 }
 
 func (d *Database) printDatabase() {
-	for _, account := range d.accounts {
-		fmt.Printf("%+v ", *account)
+	for accountName, account := range d.accounts {
+		fmt.Printf("%s: {balance: %d, creators: %v, RTS: %v, TW: %v}\n", accountName, account.balance, account.creators, account.readTimestamps, account.tentativeWrites)
 	}
 	fmt.Printf("\n")
 }

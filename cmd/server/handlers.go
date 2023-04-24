@@ -52,18 +52,18 @@ func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
 	}
 
 	//deposit logic
-	if _, ok := s.database.accounts[args.Account]; !ok {
-		// if account doesn't exist already, ABORT!
-		*reply = "NOT FOUND, ABORTED"
-		s.detectAbort(args.Timestamp, reply)
-		return nil
-	}
-
-	account := s.database.accounts[args.Account]
-
-	fmt.Println("Account found", account)
 
 	for {
+
+		if _, ok := s.database.accounts[args.Account]; !ok {
+			// if account doesn't exist already, ABORT!
+			*reply = "NOT FOUND, ABORTED"
+			s.detectAbort(args.Timestamp, reply)
+			return nil
+		}
+
+		account := s.database.accounts[args.Account]
+
 		account.lock.Lock()
 
 		if args.Timestamp > account.committedTimestamp {
@@ -246,6 +246,8 @@ func (s *Server) abort(timestamp int64) {
 
 		account.lock.Unlock()
 	}
+
+	s.database.printDatabase()
 
 	s.transactionsLock.Lock()
 	delete(s.transactions, timestamp)
