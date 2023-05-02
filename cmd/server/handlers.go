@@ -43,7 +43,7 @@ func (s *Server) Deposit(args *server.UpdateArgs, reply *server.Reply) error {
 		s.servers[args.Branch].Call("Server.Deposit", args, reply)
 	} else {
 		s.readThenUpdate(args, reply, true)
-		s.database.printDatabase()
+		// s.database.printDatabase()
 	}
 
 	s.detectAbort(args.Timestamp, reply)
@@ -70,12 +70,12 @@ func (s *Server) Withdraw(args *server.UpdateArgs, reply *server.Reply) error {
 
 	s.detectAbort(args.Timestamp, reply)
 
-	s.database.printDatabase()
+	// s.database.printDatabase()
 	return nil
 }
 
 func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
-	fmt.Println("BALANCE: ", *args)
+	// fmt.Println("BALANCE: ", *args)
 
 	if args.Branch != s.config.Branch {
 		s.servers[args.Branch].Call("Server.Balance", args, reply)
@@ -105,7 +105,7 @@ func (s *Server) Abort(args *server.AbortArgs, reply *server.Reply) error {
 func (s *Server) CoordinateCommit(args *server.CommitArgs, reply *server.Reply) error {
 	s.transactionsLock.Lock()
 
-	fmt.Println("Starting to send PrepareCommit")
+	// fmt.Println("Starting to send PrepareCommit")
 	// send PrepareCommit
 	prepareCommitAccepted := true
 	for branch := range s.transactions[args.Timestamp] {
@@ -127,7 +127,7 @@ func (s *Server) CoordinateCommit(args *server.CommitArgs, reply *server.Reply) 
 	}
 
 	// PrepareCommit accepted so send commit
-	fmt.Println("PrepareCommit all accepted")
+	// fmt.Println("PrepareCommit all accepted")
 
 	for branch := range s.transactions[args.Timestamp] {
 		if branch == s.config.Branch {
@@ -137,7 +137,7 @@ func (s *Server) CoordinateCommit(args *server.CommitArgs, reply *server.Reply) 
 	}
 	s.handleCommit(args.Timestamp)
 
-	fmt.Println("All committed")
+	// fmt.Println("All committed")
 	// all have committed so delete associated data
 	delete(s.transactions, args.Timestamp)
 	s.transactionsLock.Unlock()
@@ -163,6 +163,8 @@ func (s *Server) PrepareCommit(args *server.CommitArgs, reply *server.Reply) err
 // commits tw for a timestamp and remove the tw
 func (s *Server) handleCommit(timestamp int64) {
 	s.database.lock.Lock()
+	// updatesCommited := false
+	accountBalances := ""
 	for _, account := range s.database.accounts {
 		account.lock.Lock()
 
@@ -172,6 +174,7 @@ func (s *Server) handleCommit(timestamp int64) {
 				account.committedBalance = tw.tentativeBalance
 				account.committedTimestamp = timestamp
 				tentativeWriteIdx = idx
+				// updatesCommited = true
 				break
 			}
 		}
@@ -179,8 +182,12 @@ func (s *Server) handleCommit(timestamp int64) {
 			account.tentativeWrites = remove(account.tentativeWrites, tentativeWriteIdx)
 		}
 
+		if account.committedBalance != 0 {
+			accountBalances += fmt.Sprintf("%s.%s = %d, ", s.config.Branch, account.name, account.committedBalance)
+		}
 		account.lock.Unlock()
 	}
+	fmt.Println(accountBalances)
 	s.database.lock.Unlock()
 }
 
@@ -212,7 +219,7 @@ func (s *Server) readThenUpdate(args *server.UpdateArgs, reply *server.Reply, de
 }
 
 func (s *Server) read(args *server.BalanceArgs, reply *server.Reply) error {
-	fmt.Println(*args)
+	// fmt.Println(*args)
 	for {
 
 		if _, ok := s.database.accounts[args.Account]; !ok {
@@ -277,7 +284,7 @@ func (s *Server) read(args *server.BalanceArgs, reply *server.Reply) error {
 }
 
 func (s *Server) update(args *server.UpdateArgs, reply *server.Reply, deposit bool) error {
-	fmt.Println(*args)
+	// fmt.Println(*args)
 
 	//deposit logic
 	if _, ok := s.database.accounts[args.Account]; !ok {
@@ -410,7 +417,7 @@ func (s *Server) abort(timestamp int64) {
 		account.lock.Unlock()
 	}
 
-	s.database.printDatabase()
+	// s.database.printDatabase()
 
 	s.transactionsLock.Lock()
 	delete(s.transactions, timestamp)
