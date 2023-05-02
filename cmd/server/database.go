@@ -12,7 +12,23 @@ type Database struct {
 
 func (d *Database) printDatabase() {
 	for accountName, account := range d.accounts {
-		fmt.Printf("%s: {balance: %d, creators: %v, RTS: %v, TW: %v}\n", accountName, account.balance, account.creators, account.readTimestamps, account.tentativeWrites)
+		creators := []int64{}
+		readTimestamps := []int64{}
+		tentativeWrites := []TentativeWrite{}
+
+		for creator := range account.creators {
+			creators = append(creators, creator)
+		}
+
+		for readTS := range account.readTimestamps {
+			readTimestamps = append(readTimestamps, readTS)
+		}
+
+		for _, TW := range account.tentativeWrites {
+			tentativeWrites = append(tentativeWrites, *TW)
+		}
+
+		fmt.Printf("%s: {balance: %d, creators: %v, RTS: %v, TW: %v}\n", accountName, account.balance, creators, readTimestamps, tentativeWrites)
 	}
 	fmt.Printf("\n")
 }

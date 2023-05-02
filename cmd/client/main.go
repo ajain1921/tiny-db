@@ -38,14 +38,13 @@ func run() error {
 	// coordinatingServer := servers[rand.Intn(len(servers))]
 	coordinatingServer := servers[0]
 
-	fmt.Println(coordinatingServer)
-
 	client, err := rpc.DialHTTP("tcp", coordinatingServer.Hostname+":"+coordinatingServer.Port)
 	if err != nil {
 		log.Fatal("dialing:", err)
 	}
 
 	timestamp := time.Now().UnixNano()
+	fmt.Println(coordinatingServer, timestamp)
 
 	// var server *config.Server
 	var input string

@@ -29,36 +29,97 @@ func (s *Server) Begin(args *server.BeginArgs, reply *server.Reply) error {
 }
 
 func (s *Server) Deposit(args *server.UpdateArgs, reply *server.Reply) error {
-	err := s.update(args, reply, true)
+	s.transactionsLock.Lock()
+
+	if _, ok := s.transactions[args.Timestamp]; ok {
+		// we are coordinator so add branch to set
+		branchSet := s.transactions[args.Timestamp]
+		branchSet.Add(args.Branch)
+	}
+
+	s.transactionsLock.Unlock()
+
+	if args.Branch != s.config.Branch {
+		s.servers[args.Branch].Call("Server.Deposit", args, reply)
+	} else {
+		s.readThenUpdate(args, reply, true)
+	}
+
 	s.detectAbort(args.Timestamp, reply)
 
 	s.database.printDatabase()
-	return err
+	return nil
 }
 
 func (s *Server) Withdraw(args *server.UpdateArgs, reply *server.Reply) error {
-	err := s.update(args, reply, false)
+	s.transactionsLock.Lock()
+
+	if _, ok := s.transactions[args.Timestamp]; ok {
+		// we are coordinator so add branch to set
+		branchSet := s.transactions[args.Timestamp]
+		branchSet.Add(args.Branch)
+	}
+
+	s.transactionsLock.Unlock()
+
+	if args.Branch != s.config.Branch {
+		s.servers[args.Branch].Call("Server.Withdraw", args, reply)
+	} else {
+		s.readThenUpdate(args, reply, false)
+	}
+
 	s.detectAbort(args.Timestamp, reply)
-	return err
+
+	s.database.printDatabase()
+	return nil
 }
 
 func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
 	fmt.Println(*args)
 
 	if args.Branch != s.config.Branch {
-		// Forward to other server
 		s.servers[args.Branch].Call("Server.Balance", args, reply)
 		return nil
+	} else {
+		s.read(args, reply)
+	}
+	s.detectAbort(args.Timestamp, reply)
+
+	return nil
+}
+
+func (s *Server) Abort(args *server.AbortArgs, reply *server.Reply) error {
+	s.transactionsLock.Lock()
+	if _, ok := s.transactions[args.Timestamp]; ok {
+		// we are coordinator
+		s.transactionsLock.Unlock()
+		s.forwardAbort(args.Timestamp, reply)
+	} else {
+		s.transactionsLock.Unlock()
+		s.abort(args.Timestamp)
 	}
 
-	//deposit logic
+	*reply = "ABORTED"
+	return nil
+}
 
+func (s *Server) readThenUpdate(args *server.UpdateArgs, reply *server.Reply, deposit bool) {
+	balanceArgs := &server.BalanceArgs{Timestamp: args.Timestamp, ClientId: args.ClientId, Branch: args.Branch, Account: args.Account}
+
+	s.read(balanceArgs, reply)
+	if *reply == "ABORTED" {
+		return
+	}
+	s.update(args, reply, deposit)
+}
+
+func (s *Server) read(args *server.BalanceArgs, reply *server.Reply) error {
+	fmt.Println(*args)
 	for {
 
 		if _, ok := s.database.accounts[args.Account]; !ok {
 			// if account doesn't exist already, ABORT!
 			*reply = "NOT FOUND, ABORTED"
-			s.detectAbort(args.Timestamp, reply)
 			return nil
 		}
 
@@ -76,16 +137,24 @@ func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
 				}
 			}
 
-			fmt.Println("Max viable write timestamp", maxViableWrite.timestamp)
+			// fmt.Println("Max viable write timestamp", maxViableWrite.timestamp)
 
 			if maxViableWrite.timestamp == account.committedTimestamp {
+				if account.committedTimestamp == 0 {
+					// a transaction is trying to read from an account that hasn't been created yet in serial equivalence order
+					// but has been created due to real ordering
+					// Ex. T2: DEPOSIT A.foo 10, T1: BALANCE A.foo
+					*reply = "NOT FOUND, ABORTED"
+					account.lock.Unlock()
+					return nil
+				}
 				*reply = server.Reply(fmt.Sprintf("%s.%s = %d", s.config.Branch, account.name, maxViableWrite.tentativeBalance))
 				account.readTimestamps.Add(args.Timestamp)
 
 				account.lock.Unlock()
 				return nil
 			} else {
-				fmt.Println("Why no equal?", maxViableWrite.timestamp, args.Timestamp)
+				// fmt.Println("Why no equal?", maxViableWrite.timestamp, args.Timestamp)
 				if maxViableWrite.timestamp == args.Timestamp {
 					*reply = server.Reply(fmt.Sprintf("%s.%s = %d", s.config.Branch, account.name, maxViableWrite.tentativeBalance))
 					account.lock.Unlock()
@@ -101,8 +170,6 @@ func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
 		} else {
 			*reply = "ABORTED"
 			account.lock.Unlock()
-
-			s.detectAbort(args.Timestamp, reply)
 			return nil
 		}
 
@@ -111,43 +178,35 @@ func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
 	}
 }
 
-func (s *Server) Abort(args *server.AbortArgs, reply *server.Reply) error {
-	s.abort(args.Timestamp)
-	*reply = "ABORTED"
-	return nil
-}
-
 func (s *Server) update(args *server.UpdateArgs, reply *server.Reply, deposit bool) error {
 	fmt.Println(*args)
 
-	s.transactionsLock.Lock()
-
-	if _, ok := s.transactions[args.Timestamp]; ok {
-		// we are coordinator so add branch to set
-		branchSet := s.transactions[args.Timestamp]
-		branchSet.Add(args.Branch)
-	}
-
-	s.transactionsLock.Unlock()
-
-	if args.Branch != s.config.Branch {
-		function := "Server.Deposit"
-		if !deposit {
-			function = "Server.Withdraw"
-		}
-		// Forward to other server
-		s.servers[args.Branch].Call(function, args, reply)
-		return nil
-	}
-
 	//deposit logic
 	if _, ok := s.database.accounts[args.Account]; !ok {
+		if !deposit {
+			*reply = "NOT FOUND, ABORTED"
+			return nil
+		}
 		// if account doesn't exist already, initialize
-		s.database.accounts[args.Account] = &Account{name: args.Account, creators: Set[int64]{args.Timestamp: struct{}{}}, readTimestamps: make(Set[int64])}
+		s.database.accounts[args.Account] = &Account{name: args.Account, creators: Set[int64]{args.Timestamp: struct{}{}}, readTimestamps: Set[int64]{args.Timestamp: struct{}{}}}
 	}
 	account := s.database.accounts[args.Account]
 	account.lock.Lock()
 	defer account.lock.Unlock()
+
+	inTentativeWrites := false
+	for _, tw := range account.tentativeWrites {
+		if tw.timestamp == args.Timestamp {
+			inTentativeWrites = true
+			break
+		}
+	}
+
+	if !deposit && account.committedTimestamp == 0 && !inTentativeWrites {
+		//withdrawal and no commits yet and no tentative writes
+		*reply = "NOT FOUND, ABORTED"
+		return nil
+	}
 
 	maxReadTimestamp := int64(-1)
 	for timestamp := range account.readTimestamps {
@@ -188,30 +247,35 @@ func (s *Server) update(args *server.UpdateArgs, reply *server.Reply, deposit bo
 
 // for coordinators to handle abort
 func (s *Server) detectAbort(timestamp int64, reply *server.Reply) {
+	s.transactionsLock.Lock()
 	if _, ok := s.transactions[timestamp]; !ok {
 		// we're not coordinator
+		s.transactionsLock.Unlock()
 		return
 	}
+	s.transactionsLock.Unlock()
 
-	if *reply == "ABORTED" || *reply == "NOT FOUND, ABORTED" {
-		s.transactionsLock.Lock()
+	if isAbortReply(reply) {
+		s.forwardAbort(timestamp, reply)
+	}
+}
 
-		for branch := range s.transactions[timestamp] {
-			if branch == s.config.Branch {
-				continue
-			}
-
-			args := server.AbortArgs{Timestamp: timestamp}
-			err := s.servers[branch].Call("Server.Abort", args, reply)
-			if err != nil {
-				log.Fatal("ERROR!")
-			}
+func (s *Server) forwardAbort(timestamp int64, reply *server.Reply) {
+	s.transactionsLock.Lock()
+	for branch := range s.transactions[timestamp] {
+		if branch == s.config.Branch {
+			continue
 		}
 
-		s.transactionsLock.Unlock()
-
-		s.abort(timestamp)
+		args := server.AbortArgs{Timestamp: timestamp}
+		err := s.servers[branch].Call("Server.Abort", args, reply)
+		if err != nil {
+			log.Fatal("ERROR!")
+		}
 	}
+	s.transactionsLock.Unlock()
+
+	s.abort(timestamp)
 }
 
 func (s *Server) abort(timestamp int64) {
@@ -252,10 +316,4 @@ func (s *Server) abort(timestamp int64) {
 	s.transactionsLock.Lock()
 	delete(s.transactions, timestamp)
 	s.transactionsLock.Unlock()
-}
-
-// remove index i from array
-func remove[T any](s []T, i int) []T {
-	s[i] = s[len(s)-1]
-	return s[:len(s)-1]
 }
