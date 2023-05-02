@@ -43,11 +43,11 @@ func (s *Server) Deposit(args *server.UpdateArgs, reply *server.Reply) error {
 		s.servers[args.Branch].Call("Server.Deposit", args, reply)
 	} else {
 		s.readThenUpdate(args, reply, true)
+		s.database.printDatabase()
 	}
 
 	s.detectAbort(args.Timestamp, reply)
 
-	s.database.printDatabase()
 	return nil
 }
 
@@ -75,11 +75,10 @@ func (s *Server) Withdraw(args *server.UpdateArgs, reply *server.Reply) error {
 }
 
 func (s *Server) Balance(args *server.BalanceArgs, reply *server.Reply) error {
-	fmt.Println(*args)
+	fmt.Println("BALANCE: ", *args)
 
 	if args.Branch != s.config.Branch {
 		s.servers[args.Branch].Call("Server.Balance", args, reply)
-		return nil
 	} else {
 		s.read(args, reply)
 	}
@@ -93,7 +92,7 @@ func (s *Server) Abort(args *server.AbortArgs, reply *server.Reply) error {
 	if _, ok := s.transactions[args.Timestamp]; ok {
 		// we are coordinator
 		s.transactionsLock.Unlock()
-		s.forwardAbort(args.Timestamp, reply)
+		s.forwardAbort(args.Timestamp)
 	} else {
 		s.transactionsLock.Unlock()
 		s.abort(args.Timestamp)
@@ -101,6 +100,105 @@ func (s *Server) Abort(args *server.AbortArgs, reply *server.Reply) error {
 
 	*reply = "ABORTED"
 	return nil
+}
+
+func (s *Server) CoordinateCommit(args *server.CommitArgs, reply *server.Reply) error {
+	s.transactionsLock.Lock()
+
+	fmt.Println("Starting to send PrepareCommit")
+	// send PrepareCommit
+	prepareCommitAccepted := true
+	for branch := range s.transactions[args.Timestamp] {
+		if branch == s.config.Branch {
+			continue
+		}
+		s.servers[branch].Call("Server.PrepareCommit", args, reply)
+		if *reply == "No" {
+			prepareCommitAccepted = false
+			break
+		}
+	}
+	// check yourself for commit readiness
+	if !prepareCommitAccepted || !s.isReadyForCommit(args.Timestamp) {
+		s.transactionsLock.Unlock()
+		s.forwardAbort(args.Timestamp)
+		*reply = "ABORTED"
+		return nil
+	}
+
+	// PrepareCommit accepted so send commit
+	fmt.Println("PrepareCommit all accepted")
+
+	for branch := range s.transactions[args.Timestamp] {
+		if branch == s.config.Branch {
+			continue
+		}
+		s.servers[branch].Call("Server.Commit", args, reply)
+	}
+	s.handleCommit(args.Timestamp)
+
+	fmt.Println("All committed")
+	// all have committed so delete associated data
+	delete(s.transactions, args.Timestamp)
+	s.transactionsLock.Unlock()
+
+	*reply = "COMMIT OK"
+	return nil
+}
+
+func (s *Server) Commit(args *server.CommitArgs, reply *server.Reply) error {
+	s.handleCommit(args.Timestamp)
+	return nil
+}
+
+func (s *Server) PrepareCommit(args *server.CommitArgs, reply *server.Reply) error {
+	if s.isReadyForCommit(args.Timestamp) {
+		*reply = "Yes"
+	} else {
+		*reply = "No"
+	}
+	return nil
+}
+
+// commits tw for a timestamp and remove the tw
+func (s *Server) handleCommit(timestamp int64) {
+	s.database.lock.Lock()
+	for _, account := range s.database.accounts {
+		account.lock.Lock()
+
+		tentativeWriteIdx := -1
+		for idx, tw := range account.tentativeWrites {
+			if tw.timestamp == timestamp {
+				account.committedBalance = tw.tentativeBalance
+				account.committedTimestamp = timestamp
+				tentativeWriteIdx = idx
+				break
+			}
+		}
+		if tentativeWriteIdx != -1 {
+			account.tentativeWrites = remove(account.tentativeWrites, tentativeWriteIdx)
+		}
+
+		account.lock.Unlock()
+	}
+	s.database.lock.Unlock()
+}
+
+// check if tw balance is negative
+func (s *Server) isReadyForCommit(timestamp int64) bool {
+	for _, account := range s.database.accounts {
+		account.lock.Lock()
+
+		for _, tw := range account.tentativeWrites {
+			if tw.timestamp == timestamp && tw.tentativeBalance < 0 {
+				account.lock.Unlock()
+				return false
+			}
+
+		}
+		account.lock.Unlock()
+	}
+	return true
 }
 
 func (s *Server) readThenUpdate(args *server.UpdateArgs, reply *server.Reply, deposit bool) {
@@ -256,11 +354,11 @@ func (s *Server) detectAbort(timestamp int64, reply *server.Reply) {
 	s.transactionsLock.Unlock()
 
 	if isAbortReply(reply) {
-		s.forwardAbort(timestamp, reply)
+		s.forwardAbort(timestamp)
 	}
 }
 
-func (s *Server) forwardAbort(timestamp int64, reply *server.Reply) {
+func (s *Server) forwardAbort(timestamp int64) {
 	s.transactionsLock.Lock()
 	for branch := range s.transactions[timestamp] {
 		if branch == s.config.Branch {
@@ -268,7 +366,8 @@ func (s *Server) forwardAbort(timestamp int64, reply *server.Reply) {
 		}
 
 		args := server.AbortArgs{Timestamp: timestamp}
-		err := s.servers[branch].Call("Server.Abort", args, reply)
+		var reply server.Reply
+		err := s.servers[branch].Call("Server.Abort", args, &reply)
 		if err != nil {
 			log.Fatal("ERROR!")
 		}

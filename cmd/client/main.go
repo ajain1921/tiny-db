@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/rpc"
 	"os"
 	"pingack/mp3/internal/config"
@@ -35,8 +36,8 @@ func run() error {
 		return err
 	}
 
-	// coordinatingServer := servers[rand.Intn(len(servers))]
-	coordinatingServer := servers[0]
+	coordinatingServer := servers[rand.Intn(len(servers))]
+	// coordinatingServer := servers[0]
 
 	client, err := rpc.DialHTTP("tcp", coordinatingServer.Hostname+":"+coordinatingServer.Port)
 	if err != nil {
@@ -44,7 +45,7 @@ func run() error {
 	}
 
 	timestamp := time.Now().UnixNano()
-	fmt.Println(coordinatingServer, timestamp)
+	// fmt.Println(coordinatingServer, timestamp)
 
 	// var server *config.Server
 	var input string
@@ -150,9 +151,17 @@ func run() error {
 			}
 
 		case "COMMIT":
-			/* if server == nil {
-				continue
-			} */
+			args := server.CommitArgs{Timestamp: timestamp}
+			var reply server.Reply
+			err = client.Call("Server.CoordinateCommit", &args, &reply)
+			if err != nil {
+				log.Fatal("begin error:", err)
+			}
+			fmt.Println(reply)
+
+			if isAborted(reply) {
+				return nil
+			}
 			return nil
 
 		case "":

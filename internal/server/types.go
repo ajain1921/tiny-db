@@ -19,6 +19,10 @@ type AbortArgs struct {
 	Timestamp int64
 }
 
+type CommitArgs struct {
+	Timestamp int64
+}
+
 type BalanceArgs struct {
 	ClientId  string
 	Branch    string

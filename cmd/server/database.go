@@ -30,7 +30,9 @@ func (d *Database) printDatabase() {
 
 		fmt.Printf("%s: {balance: %d, creators: %v, RTS: %v, TW: %v}\n", accountName, account.balance, creators, readTimestamps, tentativeWrites)
 	}
-	fmt.Printf("\n")
+	if len(d.accounts) == 0 {
+		fmt.Println("EMPTY DATABASE")
+	}
 }
 
 type TentativeWrite struct {
