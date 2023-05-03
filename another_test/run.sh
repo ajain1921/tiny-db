@@ -28,7 +28,7 @@ for i in $(seq 1 $client_num); do
     if [[ ! -p "$pipe" ]]; then
         mkfifo "$pipe"
     fi
-    client_pipes+="$pipe"
+    client_pipes+=("$pipe")
 done
 
 echo $client_pipes
