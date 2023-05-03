@@ -1,0 +1,5 @@
+BEGIN
+sleep 2
+BALANCE A.a
+sleep 10
+COMMIT

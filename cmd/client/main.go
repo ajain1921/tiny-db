@@ -10,6 +10,7 @@ import (
 	"os"
 	"pingack/mp3/internal/config"
 	"pingack/mp3/internal/server"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -58,7 +59,14 @@ func run() error {
 			return err
 		}
 
-		switch command := strings.Split(input, " ")[0]; command {
+		command := strings.Split(input, " ")[0]
+
+		if command == "sleep" {
+			seconds, _ := strconv.Atoi(strings.Split(input, " ")[1])
+			time.Sleep(time.Second * time.Duration(seconds))
+		}
+
+		switch command {
 		case "BEGIN":
 			args := server.BeginArgs{ClientId: id, Timestamp: timestamp}
 			var reply server.Reply
@@ -146,9 +154,7 @@ func run() error {
 			}
 			fmt.Println(reply)
 
-			if isAborted(reply) {
-				return nil
-			}
+			return nil
 
 		case "COMMIT":
 			args := server.CommitArgs{Timestamp: timestamp}
@@ -159,9 +165,6 @@ func run() error {
 			}
 			fmt.Println(reply)
 
-			if isAborted(reply) {
-				return nil
-			}
 			return nil
 
 		case "":

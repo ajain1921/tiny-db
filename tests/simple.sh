@@ -37,21 +37,13 @@ sleep 4
 # timeout -s SIGTERM 5s $client a config.txt < ${curr_folder}input1.txt > ${curr_folder}output1.log 2>&1
 # timeout -s SIGTERM 5s $client a config.txt < ${curr_folder}input2.txt > ${curr_folder}output2.log 2>&1
 
-
-$client a config.txt < ${curr_folder}input1.txt > ${curr_folder}output1.log 2>&1
-
-pids=""
+$client a config.txt < ${curr_folder}input1.txt > ${curr_folder}output1.log 2>&1 &
 $client b config.txt < ${curr_folder}input2.txt > ${curr_folder}output2.log 2>&1 &
-pids="$pids $!"
-$client c config.txt < ${curr_folder}input3.txt > ${curr_folder}output3.log 2>&1 &
-pids="$pids $!"
-# $client a config.txt < ${curr_folder}input1.txt > ${curr_folder}output1.log 2>&1 &
-# $client b config.txt < ${curr_folder}input2.txt > ${curr_folder}output2.log 2>&1 &
-# $client c config.txt < ${curr_folder}input2.txt > ${curr_folder}output3.log 2>&1 &
-# $client d config.txt < ${curr_folder}input1.txt > ${curr_folder}output4.log 2>&1 &
-# $client e config.txt < ${curr_folder}input2.txt > ${curr_folder}output5.log 2>&1 &
+$client c config.txt < ${curr_folder}input2.txt > ${curr_folder}output3.log 2>&1 &
+$client d config.txt < ${curr_folder}input1.txt > ${curr_folder}output4.log 2>&1 &
+$client e config.txt < ${curr_folder}input2.txt > ${curr_folder}output5.log 2>&1 &
 
-wait $pids
+sleep 100
 
 cd $curr_folder
 echo "Difference between your output and expected output:"
