@@ -1,6 +1,6 @@
 BEGIN
 BALANCE A.a
-sleep 5
+sleep 2
 WITHDRAW A.a 1
-sleep 5
+sleep 2
 COMMIT

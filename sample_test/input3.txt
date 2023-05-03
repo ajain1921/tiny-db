@@ -1,5 +1,5 @@
 BEGIN
-sleep 2
+sleep 0.5
 BALANCE A.a
-sleep 10
+sleep 3
 COMMIT

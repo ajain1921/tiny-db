@@ -54,6 +54,10 @@ func run() error {
 	reader.Reset(os.Stdin)
 	for {
 		input, err = reader.ReadString('\n')
+		if len(input) == 0 {
+			continue
+		}
+
 		input = input[:len(input)-1]
 		if err != nil {
 			return err

@@ -43,6 +43,7 @@ $client a config.txt < ${curr_folder}input1.txt > ${curr_folder}output1.log 2>&1
 pids=""
 $client b config.txt < ${curr_folder}input2.txt > ${curr_folder}output2.log 2>&1 &
 pids="$pids $!"
+sleep 0.5
 $client c config.txt < ${curr_folder}input3.txt > ${curr_folder}output3.log 2>&1 &
 pids="$pids $!"
 # $client a config.txt < ${curr_folder}input1.txt > ${curr_folder}output1.log 2>&1 &
@@ -57,3 +58,4 @@ cd $curr_folder
 echo "Difference between your output and expected output:"
 diff output1.log expected1.txt
 diff output2.log expected2.txt
+diff output3.log expected3.txt
