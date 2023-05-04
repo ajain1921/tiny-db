@@ -63,7 +63,7 @@ func run() error {
 		connections[potentialServer.Branch] = client
 	}
 
-	fmt.Println("Ready")
+	// fmt.Println("Ready")
 	for {
 
 	}

@@ -131,11 +131,11 @@ func (s *Server) CoordinateCommit(args *server.CommitArgs, reply *server.Reply) 
 
 	for branch := range s.transactions[args.Timestamp] {
 		if branch == s.config.Branch {
+			s.handleCommit(args.Timestamp)
 			continue
 		}
 		s.servers[branch].Call("Server.Commit", args, reply)
 	}
-	s.handleCommit(args.Timestamp)
 
 	// fmt.Println("All committed")
 	// all have committed so delete associated data

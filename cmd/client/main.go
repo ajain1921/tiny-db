@@ -28,6 +28,7 @@ func run() error {
 	if len(args) != 2 {
 		return errors.New("exactly 2 command line argument please")
 	}
+	rand.Seed(time.Now().UnixNano())
 
 	id := args[0]
 	configFilename := args[1]
@@ -46,7 +47,7 @@ func run() error {
 	}
 
 	timestamp := time.Now().UnixNano()
-	// fmt.Println(coordinatingServer, timestamp)
+	// fmt.Println(coordinatingServer, timestamp, len(servers), rand.Intn(len(servers)))
 
 	// var server *config.Server
 	var input string
